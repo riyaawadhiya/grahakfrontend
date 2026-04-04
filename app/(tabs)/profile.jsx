@@ -1,13 +1,12 @@
 // app/(tabs)/profile.jsx
-// ✅ SELF-CONTAINED — no external deps. All state managed locally.
+// ✅ UI UNCHANGED — local state replaced with useProfile / useUpdateProfile / useUpdateNotifications / useLogout
 
-import React, { useState } from 'react';
-import {
-  View, Text, ScrollView, TouchableOpacity, StatusBar,
-  Modal, TextInput, KeyboardAvoidingView, Platform, Alert,
-} from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StatusBar, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useProfile, useUpdateProfile, useUpdateNotifications } from '../../src/hooks/useProfile';
+import { useLogout } from '../../src/hooks/useAuth';
 
 const MENU_ITEMS = [
   { icon: 'storefront-outline',    label: 'Store Settings',     desc: 'Manage your store info',    iconBg: '#EEF2FF', iconColor: '#6366F1' },
@@ -17,29 +16,63 @@ const MENU_ITEMS = [
 ];
 
 export default function ProfileScreen() {
-  const [notificationsOn, setNotificationsOn] = useState(true);
-  const [editMode, setEditMode]               = useState(false);
+  const { data: profile, isLoading } = useProfile();
+  const updateProfile       = useUpdateProfile();
+  const updateNotifications = useUpdateNotifications();
+  const logout              = useLogout();
 
-  const [name,      setName]      = useState('Rohit Sharma');
-  const [storeName, setStoreName] = useState('Sharma Store');
-  const [email,     setEmail]     = useState('rohit@sharmastore.com');
-  const [phone,     setPhone]     = useState('+91 98765 43210');
-  const [location,  setLocation]  = useState('MP Nagar, Bhopal');
+  const [editMode, setEditMode] = useState(false);
+
+  // Local edit state — synced from server data
+  const [name,      setName]      = useState('');
+  const [storeName, setStoreName] = useState('');
+  const [email,     setEmail]     = useState('');
+  const [phone,     setPhone]     = useState('');
+  const [location,  setLocation]  = useState('');
+
+  // Sync edit fields when profile loads
+  useEffect(() => {
+    if (profile) {
+      setName(profile.name       ?? '');
+      setStoreName(profile.storeName ?? '');
+      setEmail(profile.email     ?? '');
+      setPhone(profile.phone     ?? '');
+      setLocation(profile.location ?? '');
+    }
+  }, [profile]);
+
+  const notificationsOn = profile?.notificationsOn ?? true;
+
+  const handleSave = () => {
+    updateProfile.mutate(
+      { name, storeName, email, phone, location },
+      { onSuccess: () => setEditMode(false) }
+    );
+  };
 
   const handleLogout = () =>
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Log Out', style: 'destructive', onPress: () => {} },
+      { text: 'Log Out', style: 'destructive', onPress: () => logout.mutate() },
     ]);
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB', alignItems: 'center', justifyContent: 'center' }} edges={['top', 'left', 'right']}>
+        <ActivityIndicator size="large" color="#6366F1" />
+      </SafeAreaView>
+    );
+  }
+
+  const stats = profile?.stats ?? { orders: 0, rating: '—', growth: '—' };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB' }} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      {/* ── HEADER ── */}
+      {/* ── HEADER (unchanged) ── */}
       <View style={{ backgroundColor: '#6366F1', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
         <Text style={{ color: '#fff', fontSize: 24, fontWeight: '700', marginBottom: 16 }}>Profile</Text>
-
         <View style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           <View style={{ width: 60, height: 60, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)' }}>
             <Text style={{ fontSize: 28 }}>🏪</Text>
@@ -55,22 +88,19 @@ export default function ProfileScreen() {
               <Text style={{ color: '#C7D2FE', fontSize: 11 }}>{location}</Text>
             </View>
           </View>
-          <TouchableOpacity
-            onPress={() => setEditMode(true)}
-            style={{ width: 36, height: 36, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}
-          >
+          <TouchableOpacity onPress={() => setEditMode(true)} style={{ width: 36, height: 36, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="pencil-outline" size={15} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        {/* ── STATS ── */}
+        {/* ── STATS (unchanged) ── */}
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
           {[
-            { icon: 'cube-outline',        iconBg: '#EEF2FF', iconColor: '#6366F1', val: '124',  label: 'Orders'  },
-            { icon: 'star-outline',        iconBg: '#F5F3FF', iconColor: '#8B5CF6', val: '4.8',  label: 'Rating'  },
-            { icon: 'trending-up-outline', iconBg: '#EDE9FE', iconColor: '#7C3AED', val: '+12%', label: 'Growth'  },
+            { icon: 'cube-outline',        iconBg: '#EEF2FF', iconColor: '#6366F1', val: String(stats.orders), label: 'Orders'  },
+            { icon: 'star-outline',        iconBg: '#F5F3FF', iconColor: '#8B5CF6', val: String(stats.rating), label: 'Rating'  },
+            { icon: 'trending-up-outline', iconBg: '#EDE9FE', iconColor: '#7C3AED', val: String(stats.growth), label: 'Growth'  },
           ].map((s) => (
             <View key={s.label} style={{ flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 }}>
               <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: s.iconBg, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
@@ -82,7 +112,7 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        {/* ── ACCOUNT INFO ── */}
+        {/* ── ACCOUNT INFO (unchanged) ── */}
         <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 }}>
           <Text style={{ fontSize: 10, fontWeight: '700', color: '#9CA3AF', letterSpacing: 1, marginBottom: 12 }}>ACCOUNT INFO</Text>
           {[
@@ -105,14 +135,11 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        {/* ── MENU ITEMS ── */}
+        {/* ── MENU ITEMS (unchanged) ── */}
         <View style={{ backgroundColor: '#fff', borderRadius: 16, marginBottom: 14, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2, overflow: 'hidden' }}>
           {MENU_ITEMS.map((item, i) => (
             <React.Fragment key={item.label}>
-              <TouchableOpacity
-                activeOpacity={item.toggle ? 1 : 0.7}
-                style={{ flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 }}
-              >
+              <TouchableOpacity activeOpacity={item.toggle ? 1 : 0.7} style={{ flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 }}>
                 <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: item.iconBg, alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name={item.icon} size={17} color={item.iconColor} />
                 </View>
@@ -122,7 +149,7 @@ export default function ProfileScreen() {
                 </View>
                 {item.toggle ? (
                   <TouchableOpacity
-                    onPress={() => setNotificationsOn((p) => !p)}
+                    onPress={() => updateNotifications.mutate(!notificationsOn)}
                     style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: notificationsOn ? '#6366F1' : '#D1D5DB', justifyContent: 'center', padding: 2 }}
                   >
                     <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff', alignSelf: notificationsOn ? 'flex-end' : 'flex-start', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 }} />
@@ -136,10 +163,8 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        {/* ── LOGOUT ── */}
-        <TouchableOpacity
-          onPress={handleLogout}
-          activeOpacity={0.85}
+        {/* ── LOGOUT (unchanged) ── */}
+        <TouchableOpacity onPress={handleLogout} activeOpacity={0.85}
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: '#FFF1F2', borderWidth: 1, borderColor: '#FECDD3' }}
         >
           <Ionicons name="log-out-outline" size={17} color="#EF4444" />
@@ -151,7 +176,7 @@ export default function ProfileScreen() {
         </Text>
       </ScrollView>
 
-      {/* ── EDIT MODAL ── */}
+      {/* ── EDIT MODAL (unchanged) ── */}
       <Modal visible={editMode} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} activeOpacity={1} onPress={() => setEditMode(false)} />
@@ -182,10 +207,14 @@ export default function ProfileScreen() {
             ))}
 
             <TouchableOpacity
-              onPress={() => setEditMode(false)}
+              onPress={handleSave}
+              disabled={updateProfile.isPending}
               style={{ backgroundColor: '#6366F1', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 6 }}
             >
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Save Changes</Text>
+              {updateProfile.isPending
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Save Changes</Text>
+              }
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
