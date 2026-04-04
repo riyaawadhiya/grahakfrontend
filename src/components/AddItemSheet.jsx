@@ -87,68 +87,70 @@ export default function AddItemSheet({ visible, onClose }) {
           const total = cart[item.id]?.total || 0;
 
           return (
-            <View
-              key={item.id}
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: 12,
-                borderRadius: 12,
-                backgroundColor: '#F9FAFB',
-                marginBottom: 10,
-              }}
-            >
-              {/* Left */}
-              <View>
-                <Text style={{ fontSize: 14, fontWeight: '600' }}>
-                  {item.emoji} {item.name}
-                </Text>
+         <View
+  key={item.id}
+  style={{
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: '#F9FAFB',
+    marginBottom: 14,
+  }}
+>
+  {/* 🔺 RIGHT BIG BUTTON */}
+  <TouchableOpacity
+    onPress={() => handleAdd(item)}
+    style={{
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      backgroundColor: '#6366F1',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 1,
+    }}
+  >
+    <Text style={{ fontSize: 26, color: '#fff', fontWeight: '700' }}>+</Text>
+  </TouchableOpacity>
 
-                <Text style={{ fontSize: 12, color: '#6B7280' }}>
-                  ₹{item.price}
-                </Text>
+  {/* 🔻 LEFT BIG BUTTON */}
 
-                {qty > 0 && (
-                  <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 2 }}>
-                    Pending: ₹{total}
-                  </Text>
-                )}
-              </View>
 
-              {/* Right Buttons */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <TouchableOpacity
-                  onPress={() => handleRemove(item)}
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 8,
-                    backgroundColor: '#E5E7EB',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 16 }}>−</Text>
-                </TouchableOpacity>
+  {/* 🧾 CENTER CONTENT */}
+  <View style={{ flex: 1 }}>
+    <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>
+      {item.emoji} {item.name}
+    </Text>
 
-                <Text style={{ fontSize: 14, fontWeight: '600' }}>{qty}</Text>
+    <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>
+      ₹{item.price}
+    </Text>
 
-                <TouchableOpacity
-                  onPress={() => handleAdd(item)}
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 8,
-                    backgroundColor: '#6366F1',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 16, color: '#fff' }}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+    {qty > 0 && (
+      <Text style={{ fontSize: 13, color: '#EF4444', marginTop: 4 }}>
+        Pending: ₹{total}
+      </Text>
+    )}
+  </View>
+
+  {/* 🔺 RIGHT BIG BUTTON */}
+  <TouchableOpacity
+    onPress={() => handleRemove(item)}
+    style={{
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      backgroundColor: '#E5E7EB',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+    }}
+  >
+    <Text style={{ fontSize: 26, fontWeight: '600' }}>−</Text>
+  </TouchableOpacity>
+</View>
           );
         })}
       </ScrollView>
