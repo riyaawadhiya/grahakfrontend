@@ -20,8 +20,8 @@ import { DbConnection } from "../../src/module_bindings";
 // If the above import fails, swap it for the raw SDK:
 // import { DBConnection as DbConnection } from '@spacetimedb/sdk';
 
-import ProductCard from '../../src/components/ProductCard';
-import Badge from '../../src/components/Badge';
+import ProductCard from '@/components/ProductCard';
+import Badge from '@/components/Badge';
 import * as MB from '../../src/module_bindings';
 console.log('MB keys:', Object.keys(MB));
 
@@ -291,14 +291,9 @@ export default function ShopScreen() {
         {/* Add product button */}
         <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
           <TouchableOpacity
-            key={t.key}
-            onPress={() => setFilterStatus(t.key)}
-            activeOpacity={0.75}
-            style={{
-              paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, marginRight: 6,
-              backgroundColor: filterStatus === t.key ? '#6366F1' : '#fff',
-              borderWidth: 0.5, borderColor: filterStatus === t.key ? '#6366F1' : '#E5E7EB',
-            }}
+            onPress={openAdd}
+            activeOpacity={0.87}
+            style={{ backgroundColor: '#6366F1', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', elevation: 4, shadowColor: '#6366F1', shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <View style={{ width: 38, height: 38, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
@@ -311,8 +306,7 @@ export default function ShopScreen() {
             </View>
             <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        </View>
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 }}>
           <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>Product Listings</Text>
@@ -322,8 +316,8 @@ export default function ShopScreen() {
         {products.length === 0 ? (
           <View style={{ alignItems: 'center', paddingTop: 60 }}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>📦</Text>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#9CA3AF' }}>No products here</Text>
-            <Text style={{ fontSize: 11, color: '#D1D5DB', marginTop: 4 }}>Tap "Add" to get started</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#9CA3AF' }}>No products yet</Text>
+            <Text style={{ fontSize: 11, color: '#D1D5DB', marginTop: 4 }}>Tap "Add New Product" to get started</Text>
           </View>
         ) : (
           <View style={{ paddingHorizontal: 16, gap: 10 }}>
@@ -351,11 +345,7 @@ export default function ShopScreen() {
       {/* Add/Edit Product Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-          <TouchableOpacity
-            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }}
-            activeOpacity={1}
-            onPress={() => setModalVisible(false)}
-          />
+          <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} activeOpacity={1} onPress={() => setModalVisible(false)} />
           <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <View>
@@ -384,10 +374,7 @@ export default function ShopScreen() {
                 <TouchableOpacity
                   key={cat}
                   onPress={() => setFormCategory(cat)}
-                  style={{
-                    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
-                    backgroundColor: formCategory === cat ? '#6366F1' : '#F3F4F6',
-                  }}
+                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: formCategory === cat ? '#6366F1' : '#F3F4F6' }}
                 >
                   <Text style={{ fontSize: 12, fontWeight: formCategory === cat ? '600' : '400', color: formCategory === cat ? '#fff' : '#6B7280' }}>
                     {cat}
@@ -412,11 +399,17 @@ export default function ShopScreen() {
   );
 }
 
-const inputStyles = {
+const styles = {
   label: { fontSize: 12, fontWeight: '500', color: '#6B7280', marginBottom: 6 },
   input: {
-    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6',
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11,
-    fontSize: 13, color: '#111827', marginBottom: 14,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 13,
+    color: '#111827',
+    marginBottom: 14,
   },
 };

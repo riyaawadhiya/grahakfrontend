@@ -1,174 +1,145 @@
-// src/components/ProductCard.jsx
-// Used in: app/(tabs)/shop.jsx
-// Product card in 2-column grid with availability toggle + cart add/remove.
+import React from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
-import React, { memo, useCallback } from 'react';
-import {
-  View, Text, Image, Switch,
-  TouchableOpacity, Dimensions,
-} from 'react-native';
-import { useCart } from '../context/CartContext';
-import QuantityControl from './QuantityControl';
-import { formatPriceCompact } from '../utils/formatPrice';
-import { GRID_PADDING, GRID_GAP, GRID_COLUMNS } from '../utils/constants';
-
-// ── Card width calculation ────────────────────────────────────────────────────
-const SCREEN_W = Dimensions.get('window').width;
-export const CARD_WIDTH =
-  (SCREEN_W - GRID_PADDING * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
-
-// ── Veg indicator dot ─────────────────────────────────────────────────────────
-const VegDot = () => (
-  <View
-    style={{
-      position:        'absolute',
-      top:             8,
-      left:            8,
-      width:           16,
-      height:          16,
-      borderRadius:    2,
-      borderWidth:     1.5,
-      borderColor:     '#16a34a',
-      backgroundColor: '#fff',
-      alignItems:      'center',
-      justifyContent:  'center',
-    }}
-  >
-    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#16a34a' }} />
-  </View>
-);
-
-// ── ProductCard ───────────────────────────────────────────────────────────────
-/**
- * Props:
- *   product              { id, title, price, image, available }
- *   onToggleAvailability (productId: string) => void
- */
-const ProductCard = memo(({ product, onToggleAvailability }) => {
-  const { addToCart, removeFromCart, getQty } = useCart();
-  const qty = getQty(product.id);
-
-  const handleAdd    = useCallback(() => addToCart(product),             [addToCart, product]);
-  const handleRemove = useCallback(() => removeFromCart(product.id),     [removeFromCart, product.id]);
-  const handleToggle = useCallback(() => onToggleAvailability(product.id), [onToggleAvailability, product.id]);
+export default function ProductCard({ item, onEdit, onTogglePublish, onRemove }) {
+  const isLive = item.status === 'live';
 
   return (
-    <View
-      style={{
-        width:           CARD_WIDTH,
-        backgroundColor: '#ffffff',
-        borderRadius:    16,
-        overflow:        'hidden',
-        marginBottom:    12,
-        // iOS
-        shadowColor:     '#000',
-        shadowOffset:    { width: 0, height: 2 },
-        shadowOpacity:   0.07,
-        shadowRadius:    8,
-        // Android
-        elevation:       3,
-      }}
-    >
-      {/* ── Image ── */}
-      <View style={{ position: 'relative' }}>
-        <Image
-          source={product.image ? { uri: product.image } : require('../../assets/placeholder.png')}
-          style={{ width: '100%', height: 130 }}
-          resizeMode="cover"
-        />
+    <View style={styles.card}>
+      {/* TOP SECTION */}
+      <View style={styles.topRow}>
+        <Image source={{ uri: item.image }} style={styles.image} resizeMode="cover" />
 
-        <VegDot />
-
-        {/* Unavailable dim overlay */}
-        {!product.available && (
-          <View
-            style={{
-              position:        'absolute',
-              top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.48)',
-              alignItems:      'center',
-              justifyContent:  'center',
-            }}
-          >
-            <View
-              style={{
-                backgroundColor:   'rgba(0,0,0,0.6)',
-                paddingHorizontal: 10,
-                paddingVertical:   4,
-                borderRadius:      20,
-              }}
-            >
-              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Unavailable</Text>
+        <View style={styles.info}>
+          {/* Name + Status Badge */}
+          <View style={styles.nameRow}>
+            <Text numberOfLines={1} style={styles.name}>{item.name}</Text>
+            <View style={[styles.badge, isLive ? styles.badgeLive : styles.badgeDraft]}>
+              <View style={[styles.dot, { backgroundColor: isLive ? '#16a34a' : '#9ca3af' }]} />
+              <Text style={[styles.badgeText, { color: isLive ? '#16a34a' : '#6b7280' }]}>
+                {isLive ? 'Live' : 'Draft'}
+              </Text>
             </View>
           </View>
-        )}
+
+          {/* Price */}
+          <Text style={styles.price}>₹{item.price}</Text>
+
+          {/* Category + Stock */}
+          <View style={styles.metaRow}>
+            <View style={styles.categoryPill}>
+              <Text style={styles.categoryText}>{item.category}</Text>
+            </View>
+            <Text style={styles.stock}>Stock: {item.stock}</Text>
+          </View>
+        </View>
       </View>
 
-      {/* ── Body ── */}
-      <View style={{ padding: 12 }}>
+      {/* DIVIDER */}
+      <View style={styles.divider} />
 
-        {/* Title */}
-        <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>
-          {product.title}
-        </Text>
+      {/* ACTION ROW */}
+      <View style={styles.actionRow}>
+        <TouchableOpacity style={styles.actionBtn} onPress={onEdit}>
+          <Feather name="edit-2" size={14} color="#7C3AED" />
+          <Text style={[styles.actionText, { color: '#7C3AED' }]}>Edit</Text>
+        </TouchableOpacity>
 
-        {/* Price */}
-        <Text style={{ fontSize: 15, fontWeight: '800', color: '#4F46E5', marginTop: 2 }}>
-          {formatPriceCompact(product.price)}
-        </Text>
+        <View style={styles.actionDivider} />
 
-        {/* Availability toggle */}
-        <View
-          style={{
-            flexDirection:     'row',
-            alignItems:        'center',
-            justifyContent:    'space-between',
-            marginTop:         10,
-            paddingTop:        10,
-            borderTopWidth:    0.5,
-            borderTopColor:    '#F3F4F6',
-            marginBottom:      10,
-          }}
-        >
-          <Text style={{ fontSize: 11, fontWeight: '600', color: product.available ? '#16a34a' : '#9CA3AF' }}>
-            {product.available ? '● Available' : '○ Off'}
+        <TouchableOpacity style={styles.actionBtn} onPress={onTogglePublish}>
+          <Feather name={isLive ? 'eye-off' : 'eye'} size={14} color="#6b7280" />
+          <Text style={[styles.actionText, { color: '#6b7280' }]}>
+            {isLive ? 'Unpublish' : 'Publish'}
           </Text>
-          <Switch
-            value={product.available}
-            onValueChange={handleToggle}
-            trackColor={{ false: '#E5E7EB', true: '#C7D2FE' }}
-            thumbColor={product.available ? '#4F46E5' : '#D1D5DB'}
-            ios_backgroundColor="#E5E7EB"
-            style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
-          />
-        </View>
+        </TouchableOpacity>
 
-        {/* Add button / Quantity control */}
-        {qty === 0 ? (
-          <TouchableOpacity
-            onPress={handleAdd}
-            disabled={!product.available}
-            activeOpacity={0.75}
-            style={{
-              backgroundColor: product.available ? '#4F46E5' : '#E5E7EB',
-              borderRadius:    10,
-              paddingVertical: 8,
-              alignItems:      'center',
-            }}
-            accessibilityLabel={`Add ${product.title} to cart`}
-            accessibilityRole="button"
-          >
-            <Text style={{ color: product.available ? '#fff' : '#9CA3AF', fontWeight: '700', fontSize: 13 }}>
-              + Add
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <QuantityControl qty={qty} onAdd={handleAdd} onRemove={handleRemove} size="sm" />
-        )}
+        <View style={styles.actionDivider} />
+
+        <TouchableOpacity style={styles.actionBtn} onPress={onRemove}>
+          <Feather name="trash-2" size={14} color="#ef4444" />
+          <Text style={[styles.actionText, { color: '#ef4444' }]}>Remove</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
-});
+}
 
-ProductCard.displayName = 'ProductCard';
-export default ProductCard;r
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: '#e5e7eb',
+    marginHorizontal: 16,
+    marginVertical: 6,
+    overflow: 'hidden',
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 14,
+    paddingBottom: 12,
+  },
+  image: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 0.5,
+    borderColor: '#e5e7eb',
+  },
+  info: { flex: 1, minWidth: 0 },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 2,
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
+    flex: 1,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 20,
+    borderWidth: 0.5,
+  },
+  badgeLive: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
+  badgeDraft: { backgroundColor: '#f9fafb', borderColor: '#e5e7eb' },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  badgeText: { fontSize: 12, fontWeight: '500' },
+  price: { fontSize: 15, fontWeight: '500', color: '#7C3AED', marginBottom: 6 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  categoryPill: {
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#e5e7eb',
+  },
+  categoryText: { fontSize: 12, color: '#6b7280' },
+  stock: { fontSize: 12, color: '#6b7280' },
+  divider: { height: 0.5, backgroundColor: '#e5e7eb' },
+  actionRow: { flexDirection: 'row' },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+  },
+  actionDivider: { width: 0.5, backgroundColor: '#e5e7eb' },
+  actionText: { fontSize: 13, fontWeight: '500' },
+});
