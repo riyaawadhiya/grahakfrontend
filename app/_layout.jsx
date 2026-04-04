@@ -1,3 +1,6 @@
+// app/_layout.jsx  (Root layout)
+// ✅ SafeAreaProvider wraps everything
+
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -7,7 +10,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(pages)" options={{ headerShown: false }} />
-         <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(auth)" />
       </Stack>
     </SafeAreaProvider>
   );

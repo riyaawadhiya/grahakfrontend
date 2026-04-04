@@ -1,3 +1,6 @@
+// app/(tabs)/_layout.jsx
+// ✅ Tab bar layout — matches #6366F1 design system
+
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, Text } from 'react-native';
@@ -33,7 +36,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="order"
+        name="orders"
         options={{
           tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'receipt' : 'receipt-outline'} focused={focused} label="Orders" />,
         }}

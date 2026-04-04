@@ -1,32 +1,102 @@
+// app/(tabs)/analytics.jsx
+// ✅ SELF-CONTAINED — Charts and mock data inlined. No external utils needed.
+
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { BarChart, DonutChart } from '../../src/components/Charts';
-import { WEEKLY_DATA, MONTHLY_DATA, YEARLY_DATA, PIE_DATA } from '../../src/utils/mockData';
 
-const PERIODS = [
-  { key: 'week',  label: 'Week'  },
-  { key: 'month', label: 'Month' },
-  { key: 'year',  label: 'Year'  },
+// ─── Mock Data (inlined — no utils needed) ────────────────────────────────────
+const WEEKLY_DATA  = [
+  { l: 'Mon', v: 320 }, { l: 'Tue', v: 480 }, { l: 'Wed', v: 290 },
+  { l: 'Thu', v: 750 }, { l: 'Fri', v: 920 }, { l: 'Sat', v: 1100 }, { l: 'Sun', v: 680 },
+];
+const MONTHLY_DATA = [
+  { l: 'W1', v: 3200 }, { l: 'W2', v: 4800 }, { l: 'W3', v: 4200 }, { l: 'W4', v: 6340 },
+];
+const YEARLY_DATA  = [
+  { l: 'Jan', v: 14200 }, { l: 'Feb', v: 16800 }, { l: 'Mar', v: 13900 },
+  { l: 'Apr', v: 18400 }, { l: 'May', v: 21000 }, { l: 'Jun', v: 19500 },
+  { l: 'Jul', v: 24600 }, { l: 'Aug', v: 22100 }, { l: 'Sep', v: 18700 },
+  { l: 'Oct', v: 27300 }, { l: 'Nov', v: 31200 }, { l: 'Dec', v: 26900 },
+];
+const PIE_DATA = [
+  { name: 'Electronics', value: 38, color: '#6366F1' },
+  { name: 'Footwear',    value: 27, color: '#8B5CF6' },
+  { name: 'Clothing',    value: 21, color: '#A78BFA' },
+  { name: 'Other',       value: 14, color: '#C4B5FD' },
 ];
 
-const KPI = {
-  week:  { revenue: '₹4,820',   online: '₹3,140',  sales: '128' },
-  month: { revenue: '₹18,540',  online: '₹12,380', sales: '512' },
-  year:  { revenue: '₹2,14,600', online: '₹1,48,900', sales: '6,248' },
-};
+// ─── Inline BarChart ──────────────────────────────────────────────────────────
+function BarChart({ data = [], height = 160 }) {
+  if (!data.length) return null;
+  const maxVal = Math.max(...data.map((d) => d.v), 1);
 
-const CHART_DATA = { week: WEEKLY_DATA, month: MONTHLY_DATA, year: YEARLY_DATA };
+  return (
+    <View style={{ height, flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
+      {data.map((item, i) => {
+        const barPct = (item.v / maxVal) * 78;
+        const isMax  = item.v === maxVal;
+        return (
+          <View key={i} style={{ flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+            <Text style={{ fontSize: 8, color: '#9CA3AF', marginBottom: 3, fontWeight: '500' }}>
+              {item.v >= 1000 ? `${(item.v / 1000).toFixed(1)}k` : item.v}
+            </Text>
+            <View style={{
+              width: '70%', height: `${barPct}%`,
+              backgroundColor: isMax ? '#6366F1' : '#C7D2FE',
+              borderRadius: 5, marginBottom: 6,
+            }} />
+            <Text style={{ fontSize: 9, color: '#9CA3AF', fontWeight: '500' }}>{item.l}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
-const TOP_ITEMS = [
-  { name: 'Headphones',  sales: 148, color: '#6366F1' },
-  { name: 'Sneakers',    sales: 124, color: '#8B5CF6' },
-  { name: 'Smart Watch', sales: 98,  color: '#A78BFA' },
-  { name: 'T-Shirts',    sales: 87,  color: '#C4B5FD' },
-  { name: 'Sunglasses',  sales: 63,  color: '#DDD6FE' },
-];
+// ─── Inline DonutChart ────────────────────────────────────────────────────────
+function DonutChart({ data = [] }) {
+  const SIZE   = 120;
+  const STROKE = 18;
+  const INNER  = SIZE - STROKE * 2;
+  const sorted = [...data].sort((a, b) => b.value - a.value);
 
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+      <View style={{ width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' }}>
+        {/* Outer ring — dominant colour */}
+        <View style={{ position: 'absolute', width: SIZE, height: SIZE, borderRadius: SIZE / 2, borderWidth: STROKE, borderColor: sorted[0]?.color ?? '#6366F1' }} />
+        {/* Second segment */}
+        <View style={{ position: 'absolute', width: SIZE, height: SIZE / 2, overflow: 'hidden', top: 0 }}>
+          <View style={{ width: SIZE, height: SIZE, borderRadius: SIZE / 2, borderWidth: STROKE, borderColor: sorted[1]?.color ?? '#8B5CF6' }} />
+        </View>
+        {/* Third segment */}
+        <View style={{ position: 'absolute', width: SIZE / 2, height: SIZE / 2, overflow: 'hidden', top: SIZE / 2, left: SIZE / 2 }}>
+          <View style={{ width: SIZE, height: SIZE, borderRadius: SIZE / 2, borderWidth: STROKE, borderColor: sorted[2]?.color ?? '#A78BFA', position: 'absolute', bottom: 0, right: 0 }} />
+        </View>
+        {/* Centre hole */}
+        <View style={{ width: INNER, height: INNER, borderRadius: INNER / 2, backgroundColor: '#fff', zIndex: 10, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: '#111827' }}>{sorted[0]?.value ?? 0}%</Text>
+          <Text style={{ fontSize: 8, color: '#9CA3AF', marginTop: 1 }}>top</Text>
+        </View>
+      </View>
+
+      {/* Legend */}
+      <View style={{ flex: 1, gap: 10 }}>
+        {data.map((d) => (
+          <View key={d.name} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: d.color, flexShrink: 0 }} />
+            <Text style={{ flex: 1, fontSize: 12, color: '#374151', fontWeight: '500' }}>{d.name}</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#6B7280' }}>{d.value}%</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
 function KpiCard({ icon, iconBg, iconColor, label, value, badge }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 }}>
@@ -36,7 +106,7 @@ function KpiCard({ icon, iconBg, iconColor, label, value, badge }) {
         </View>
         {badge && (
           <View style={{ backgroundColor: '#F0FDF4', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
-            <Text style={{ fontSize: 10, fontWeight: '600', color: '#00B14F' }}>{badge}</Text>
+            <Text style={{ fontSize: 10, fontWeight: '600', color: '#16A34A' }}>{badge}</Text>
           </View>
         )}
       </View>
@@ -46,6 +116,27 @@ function KpiCard({ icon, iconBg, iconColor, label, value, badge }) {
   );
 }
 
+// ─── Periods & KPI Data ───────────────────────────────────────────────────────
+const PERIODS = [
+  { key: 'week',  label: 'Week'  },
+  { key: 'month', label: 'Month' },
+  { key: 'year',  label: 'Year'  },
+];
+const KPI = {
+  week:  { revenue: '₹4,820',    online: '₹3,140',    sales: '128'   },
+  month: { revenue: '₹18,540',   online: '₹12,380',   sales: '512'   },
+  year:  { revenue: '₹2,14,600', online: '₹1,48,900', sales: '6,248' },
+};
+const CHART_DATA = { week: WEEKLY_DATA, month: MONTHLY_DATA, year: YEARLY_DATA };
+const TOP_ITEMS = [
+  { name: 'Headphones',  sales: 148, color: '#6366F1' },
+  { name: 'Sneakers',    sales: 124, color: '#8B5CF6' },
+  { name: 'Smart Watch', sales: 98,  color: '#A78BFA' },
+  { name: 'T-Shirts',    sales: 87,  color: '#C4B5FD' },
+  { name: 'Sunglasses',  sales: 63,  color: '#DDD6FE' },
+];
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 export default function AnalyticsScreen() {
   const [period, setPeriod] = useState('month');
   const kpi = KPI[period];
@@ -54,7 +145,7 @@ export default function AnalyticsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB' }} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      {/* ── GRADIENT HEADER ── */}
+      {/* ── HEADER ── */}
       <View style={{ backgroundColor: '#6366F1', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
         <Text style={{ color: '#C7D2FE', fontSize: 12, marginBottom: 4 }}>Dashboard Overview</Text>
         <Text style={{ color: '#fff', fontSize: 24, fontWeight: '700', marginBottom: 14 }}>Analytics</Text>
@@ -78,11 +169,11 @@ export default function AnalyticsScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
         {/* ── KPI CARDS ── */}
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
-          <KpiCard icon="cash-outline"       iconBg="#EEF2FF" iconColor="#6366F1" label="Revenue"     value={kpi.revenue} badge="+12%" />
-          <KpiCard icon="card-outline"       iconBg="#F5F3FF" iconColor="#8B5CF6" label="Online Pay"  value={kpi.online}  badge="+8%"  />
+          <KpiCard icon="cash-outline"  iconBg="#EEF2FF" iconColor="#6366F1" label="Revenue"     value={kpi.revenue} badge="+12%" />
+          <KpiCard icon="card-outline"  iconBg="#F5F3FF" iconColor="#8B5CF6" label="Online Pay"  value={kpi.online}  badge="+8%"  />
         </View>
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-          <KpiCard icon="bag-outline"        iconBg="#EDE9FE" iconColor="#7C3AED" label="Total Sales" value={kpi.sales}   badge="+5%"  />
+          <KpiCard icon="bag-outline"   iconBg="#EDE9FE" iconColor="#7C3AED" label="Total Sales" value={kpi.sales}   badge="+5%"  />
           <View style={{ flex: 1, borderRadius: 16, padding: 14, backgroundColor: '#6366F1', shadowColor: '#6366F1', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 }}>
             <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
               <Ionicons name="trending-up-outline" size={18} color="#fff" />

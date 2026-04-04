@@ -1,15 +1,10 @@
+// app/(tabs)/profile.jsx
+// ✅ SELF-CONTAINED — no external deps. All state managed locally.
+
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  View, Text, ScrollView, TouchableOpacity, StatusBar,
+  Modal, TextInput, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,11 +36,10 @@ export default function ProfileScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB' }} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      {/* ── GRADIENT HEADER ── */}
+      {/* ── HEADER ── */}
       <View style={{ backgroundColor: '#6366F1', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
         <Text style={{ color: '#fff', fontSize: 24, fontWeight: '700', marginBottom: 16 }}>Profile</Text>
 
-        {/* Profile Card */}
         <View style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           <View style={{ width: 60, height: 60, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)' }}>
             <Text style={{ fontSize: 28 }}>🏪</Text>
@@ -74,9 +68,9 @@ export default function ProfileScreen() {
         {/* ── STATS ── */}
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
           {[
-            { icon: 'cube-outline',       iconBg: '#EEF2FF', iconColor: '#6366F1', val: '124',  label: 'Orders'  },
-            { icon: 'star-outline',       iconBg: '#F5F3FF', iconColor: '#8B5CF6', val: '4.8',  label: 'Rating'  },
-            { icon: 'trending-up-outline',iconBg: '#EDE9FE', iconColor: '#7C3AED', val: '+12%', label: 'Growth'  },
+            { icon: 'cube-outline',        iconBg: '#EEF2FF', iconColor: '#6366F1', val: '124',  label: 'Orders'  },
+            { icon: 'star-outline',        iconBg: '#F5F3FF', iconColor: '#8B5CF6', val: '4.8',  label: 'Rating'  },
+            { icon: 'trending-up-outline', iconBg: '#EDE9FE', iconColor: '#7C3AED', val: '+12%', label: 'Growth'  },
           ].map((s) => (
             <View key={s.label} style={{ flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 }}>
               <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: s.iconBg, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
@@ -152,7 +146,9 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 14, fontWeight: '600', color: '#EF4444' }}>Log Out</Text>
         </TouchableOpacity>
 
-        <Text style={{ textAlign: 'center', color: '#D1D5DB', fontSize: 11, marginTop: 16 }}>Version 1.0.0 • {storeName} Admin</Text>
+        <Text style={{ textAlign: 'center', color: '#D1D5DB', fontSize: 11, marginTop: 16 }}>
+          Version 1.0.0 • {storeName} Admin
+        </Text>
       </ScrollView>
 
       {/* ── EDIT MODAL ── */}
@@ -168,11 +164,11 @@ export default function ProfileScreen() {
             </View>
 
             {[
-              { label: 'Full Name',   value: name,      onChange: setName      },
-              { label: 'Store Name',  value: storeName,  onChange: setStoreName  },
-              { label: 'Email',       value: email,      onChange: setEmail      },
-              { label: 'Phone',       value: phone,      onChange: setPhone      },
-              { label: 'Location',    value: location,   onChange: setLocation   },
+              { label: 'Full Name',  value: name,      onChange: setName      },
+              { label: 'Store Name', value: storeName,  onChange: setStoreName  },
+              { label: 'Email',      value: email,      onChange: setEmail      },
+              { label: 'Phone',      value: phone,      onChange: setPhone      },
+              { label: 'Location',   value: location,   onChange: setLocation   },
             ].map((field) => (
               <View key={field.label} style={{ marginBottom: 12 }}>
                 <Text style={{ fontSize: 11, fontWeight: '500', color: '#9CA3AF', marginBottom: 5 }}>{field.label}</Text>
@@ -180,6 +176,7 @@ export default function ProfileScreen() {
                   style={{ backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 13, color: '#111827' }}
                   value={field.value}
                   onChangeText={field.onChange}
+                  placeholderTextColor="#9CA3AF"
                 />
               </View>
             ))}
