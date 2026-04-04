@@ -1,124 +1,286 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  Alert,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
+  View, Text, ScrollView, TouchableOpacity,
+  StatusBar, Alert, Modal, TextInput,
+  KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
+
+// ── IMPORTANT ─────────────────────────────────────────────────────────────────
+// DbConnection must come from the SDK, not from module_bindings directly.
+// Your module_bindings re-exports a typed wrapper — we import both:
+//   1. The typed DbConnection from your generated bindings (has .db / .reducers)
+//   2. Fallback: raw SDK if bindings aren't set up yet
+//
+// Run: spacetime generate --lang typescript --out-dir src/module_bindings
+// to regenerate bindings if missing.
+import { DbConnection } from "../../src/module_bindings";
+// If the above import fails, swap it for the raw SDK:
+// import { DBConnection as DbConnection } from '@spacetimedb/sdk';
+
 import ProductCard from '../../src/components/ProductCard';
-import StatCard from '../../src/components/StatCard';
 import Badge from '../../src/components/Badge';
-import { MOCK_ITEMS } from '../../src/utils/mockData';
+import * as MB from '../../src/module_bindings';
+console.log('MB keys:', Object.keys(MB));
 
-const CATEGORIES = ['Electronics', 'Footwear', 'Clothing', 'Accessories', 'Home', 'Other'];
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const STDB_URI = 'wss://maincloud.spacetimedb.com';
+const STDB_NAME = 'grahak';   // must match: spacetime publish <name>
+const TOKEN_KEY = 'stdb_token';
+const SHOP_ID_KEY = 'stdb_shop_id';
 
+// In shop.jsx, find this const:
+// const STDB_NAME = 'grahak';
+
+// Then in your builder, it must be:
+const builder = DbConnection.builder()
+  .withUri(STDB_URI)
+  .withDatabaseName(STDB_NAME) 
+
+const CATEGORIES = ['All', 'Food', 'Beverage', 'Snack', 'Combo', 'Other'];
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function paiseToRupees(paise) {
+  return (Number(paise) / 100).toFixed(2);
+}
+function rupeesToPaise(rupees) {
+  return BigInt(Math.round(parseFloat(rupees) * 100));
+}
+
+const Storage = {
+  getItem: (key) => SecureStore.getItemAsync(key),
+  setItem: (key, value) => SecureStore.setItemAsync(key, String(value)),
+  removeItem: (key) => SecureStore.deleteItemAsync(key),
+};
+
+// ── COMPONENT ─────────────────────────────────────────────────────────────────
 export default function ShopScreen() {
-  const [items, setItems] = useState(MOCK_ITEMS);
+  const [conn, setConn] = useState(null);
+  const [connected, setConnected] = useState(false);
+  const [shopId, setShopId] = useState(null);
+  const [products, setProducts] = useState([]);
+
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [formName, setFormName] = useState('');
+  const [formPrice, setFormPrice] = useState('');
+  const [formCategory, setFormCategory] = useState('Food');
 
-  // Form state
-  const [formName, setFormName]         = useState('');
-  const [formPrice, setFormPrice]       = useState('');
-  const [formQty, setFormQty]           = useState('');
-  const [formCategory, setFormCategory] = useState('Electronics');
-  const [formPublished, setFormPublished] = useState(true);
+  const [shopModalVisible, setShopModalVisible] = useState(false);
+  const [shopName, setShopName] = useState('');
 
-  const published   = items.filter((i) => i.status === 'published').length;
-  const unpublished = items.filter((i) => i.status === 'unpublished').length;
-  const draft       = items.filter((i) => i.status === 'draft').length;
+  // ── Connect ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    let connection;
 
-  const openAdd = () => {
-    setEditingItem(null);
-    setFormName(''); setFormPrice(''); setFormQty('');
-    setFormCategory('Electronics'); setFormPublished(true);
-    setModalVisible(true);
-  };
+    async function connect() {
+      try {
+        const savedToken = await Storage.getItem(TOKEN_KEY);
+        const savedShopId = await Storage.getItem(SHOP_ID_KEY);
+        if (savedShopId) setShopId(BigInt(savedShopId));
 
-  const openEdit = (item) => {
-    setEditingItem(item);
-    setFormName(item.name);
-    setFormPrice(String(item.price));
-    setFormQty(String(item.quantity));
-    setFormCategory(item.category);
-    setFormPublished(item.status === 'published');
-    setModalVisible(true);
-  };
+        // Guard: wait a tick for module to fully initialize
+        if (!DbConnection?.builder) {
+          console.warn('DbConnection not ready yet');
+          return;
+        }
 
-  const saveItem = () => {
-    if (!formName.trim() || !formPrice || !formQty) return;
-    if (editingItem) {
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === editingItem.id
-            ? { ...i, name: formName, price: parseFloat(formPrice), quantity: parseInt(formQty), category: formCategory, status: formPublished ? 'published' : 'unpublished' }
-            : i
-        )
-      );
-    } else {
-      setItems((prev) => [
-        {
-          id: String(Date.now()),
-          name: formName,
-          price: parseFloat(formPrice),
-          quantity: parseInt(formQty),
-          category: formCategory,
-          status: formPublished ? 'published' : 'unpublished',
-          image: 'https://images.unsplash.com/photo-1758979792186-32a5da91f24d?w=300&q=80',
-        },
-        ...prev,
-      ]);
+        const builder = DbConnection.builder()
+          .withUri(STDB_URI)
+          .withDatabaseName(STDB_NAME)   // ← correct method
+          .onConnect(async (_conn, _identity, token) => {
+            console.log('✅ SpacetimeDB connected');
+            await Storage.setItem(TOKEN_KEY, token);
+            setConnected(true);
+          })
+          .onDisconnect(() => {
+            setConnected(false);
+          })
+          .onConnectError((err) => {
+            Alert.alert('Connection Error', String(err?.message ?? err));
+          });
+
+        if (savedToken) builder.withToken(savedToken);
+
+        connection = builder.build();
+        setConn(connection);
+
+      } catch (err) {
+        console.error('connect() threw:', err);
+        // Don't Alert here — it's noisy on first load
+        // Alert.alert('Error', String(err?.message ?? err));
+      }
     }
-    setModalVisible(false);
-  };
 
-  const togglePublish = (id) => {
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === id ? { ...i, status: i.status === 'published' ? 'unpublished' : 'published' } : i
-      )
-    );
-  };
+    // Small delay so JS module registry fully loads before calling builder
+    const timer = setTimeout(connect, 0);
+    return () => {
+      clearTimeout(timer);
+      connection?.disconnect?.();
+    };
+  }, []);
+  // ── Subscribe: products ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!conn || !connected || !shopId) return;
 
-  const removeItem = (id) => {
-    Alert.alert('Remove Product?', 'This cannot be undone.', [
+    conn.subscriptionBuilder()
+      .subscribe(`SELECT * FROM products WHERE shop_id = ${shopId}`);
+
+    const unsubInsert = conn.db.products.onInsert((_ctx, product) => {
+      if (product.shop_id === shopId)
+        setProducts(prev => [product, ...prev]);
+    });
+    const unsubUpdate = conn.db.products.onUpdate((_ctx, _old, updated) => {
+      setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
+    });
+    const unsubDelete = conn.db.products.onDelete((_ctx, deleted) => {
+      setProducts(prev => prev.filter(p => p.id !== deleted.id));
+    });
+
+    return () => { unsubInsert?.(); unsubUpdate?.(); unsubDelete?.(); };
+  }, [conn, connected, shopId]);
+
+  // ── Subscribe: shops (to catch our own shop after createShop) ─────────────
+  useEffect(() => {
+    if (!conn || !connected) return;
+
+    conn.subscriptionBuilder().subscribe('SELECT * FROM shops');
+
+    const unsub = conn.db.shops.onInsert(async (_ctx, shop) => {
+      const id = shop.id;
+      await Storage.setItem(SHOP_ID_KEY, id.toString());
+      setShopId(id);
+    });
+
+    return () => { unsub?.(); };
+  }, [conn, connected]);
+
+  // ── Reducers ───────────────────────────────────────────────────────────────
+  const handleCreateShop = useCallback(async () => {
+    if (!conn || !shopName.trim()) return;
+    try {
+      await conn.reducers.createShop(shopName.trim());
+      setShopModalVisible(false);
+      setShopName('');
+    } catch (e) {
+      Alert.alert('Error', e.message ?? 'Could not create shop');
+    }
+  }, [conn, shopName]);
+
+  const handleAddProduct = useCallback(async () => {
+    if (!conn || !shopId || !formName.trim() || !formPrice) return;
+    try {
+      await conn.reducers.addProduct(shopId, formName.trim(), rupeesToPaise(formPrice));
+      setModalVisible(false);
+      resetForm();
+    } catch (e) {
+      Alert.alert('Error', e.message ?? 'Could not add product');
+    }
+  }, [conn, shopId, formName, formPrice]);
+
+  const handleRemoveProduct = useCallback((product) => {
+    Alert.alert('Remove Product?', `Remove "${product.name}"?`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => setItems((prev) => prev.filter((i) => i.id !== id)) },
+      {
+        text: 'Remove', style: 'destructive',
+        onPress: () => setProducts(prev => prev.filter(p => p.id !== product.id)),
+      },
     ]);
-  };
+  }, []);
 
+  function resetForm() {
+    setEditingProduct(null);
+    setFormName('');
+    setFormPrice('');
+    setFormCategory('Food');
+  }
+  function openAdd() { resetForm(); setModalVisible(true); }
+  function openEdit(product) {
+    setEditingProduct(product);
+    setFormName(product.name);
+    setFormPrice(paiseToRupees(product.price));
+    setFormCategory('Food');
+    setModalVisible(true);
+  }
+
+  const totalRevenue = products.reduce((sum, p) => sum + Number(p.price), 0) / 100;
+
+  // ── Loading screen ─────────────────────────────────────────────────────────
+  if (!connected) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#6366F1" />
+        <Text style={{ marginTop: 12, color: '#6B7280', fontSize: 13 }}>Connecting to server...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Create shop screen ─────────────────────────────────────────────────────
+  if (!shopId) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Welcome to QRDine</Text>
+        <Text style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center', marginBottom: 32 }}>
+          Create your shop to start managing products and orders.
+        </Text>
+        <TouchableOpacity
+          onPress={() => setShopModalVisible(true)}
+          style={{ backgroundColor: '#6366F1', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 32 }}
+        >
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Create My Shop</Text>
+        </TouchableOpacity>
+
+        <Modal visible={shopModalVisible} animationType="slide" transparent>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+            <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} activeOpacity={1} onPress={() => setShopModalVisible(false)} />
+            <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 16 }}>Name your shop</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Sharma Ji Ka Dhaba"
+                value={shopName}
+                onChangeText={setShopName}
+                autoFocus
+              />
+              <TouchableOpacity
+                onPress={handleCreateShop}
+                disabled={!shopName.trim()}
+                style={{ backgroundColor: '#6366F1', borderRadius: 14, paddingVertical: 14, alignItems: 'center', opacity: shopName.trim() ? 1 : 0.4 }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Create Shop</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Main screen ────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB' }} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      {/* ── GRADIENT HEADER ── */}
+      {/* Header */}
       <View style={{ backgroundColor: '#6366F1', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
-        <Text style={{ color: '#C7D2FE', fontSize: 12, marginBottom: 2 }}>Inventory</Text>
+        <Text style={{ color: '#C7D2FE', fontSize: 12, marginBottom: 2 }}>Inventory · Live</Text>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontSize: 24, fontWeight: '700' }}>My Shop</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            <Ionicons name="cube-outline" size={15} color="rgba(255,255,255,0.8)" />
-            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>{items.length} items</Text>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#4ADE80' }} />
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>{products.length} products</Text>
           </View>
         </View>
-
-        {/* Stats Row */}
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
           {[
-            { val: published,   label: 'Published'   },
-            { val: unpublished, label: 'Unpublished' },
-            { val: draft,       label: 'Draft'       },
+            { val: products.length, label: 'Total' },
+            { val: `₹${totalRevenue.toFixed(0)}`, label: 'Menu Value' },
+            { val: `#${shopId.toString()}`, label: 'Shop ID' },
           ].map((s) => (
             <View key={s.label} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, paddingVertical: 8, alignItems: 'center' }}>
-              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>{s.val}</Text>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{String(s.val)}</Text>
               <Text style={{ color: '#C7D2FE', fontSize: 11 }}>{s.label}</Text>
             </View>
           ))}
@@ -126,7 +288,7 @@ export default function ShopScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, paddingTop: 16 }}>
-        {/* ── ADD BUTTON ── */}
+        {/* Add product button */}
         <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
           <TouchableOpacity
             onPress={openAdd}
@@ -139,21 +301,19 @@ export default function ShopScreen() {
               </View>
               <View>
                 <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Add New Product</Text>
-                <Text style={{ color: '#C7D2FE', fontSize: 11 }}>Tap to add item to your shop</Text>
+                <Text style={{ color: '#C7D2FE', fontSize: 11 }}>Syncs to all customers instantly</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
           </TouchableOpacity>
         </View>
 
-        {/* ── SECTION HEADER ── */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 }}>
           <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>Product Listings</Text>
-          <Badge label={`${items.length} items`} variant="indigo" />
+          <Badge label={`${products.length} items`} variant="indigo" />
         </View>
 
-        {/* ── ITEM LIST ── */}
-        {items.length === 0 ? (
+        {products.length === 0 ? (
           <View style={{ alignItems: 'center', paddingTop: 60 }}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>📦</Text>
             <Text style={{ fontSize: 14, fontWeight: '600', color: '#9CA3AF' }}>No products yet</Text>
@@ -161,87 +321,75 @@ export default function ShopScreen() {
           </View>
         ) : (
           <View style={{ paddingHorizontal: 16, gap: 10 }}>
-            {items.map((item) => (
+            {products.map((product) => (
               <ProductCard
-                key={item.id}
-                item={item}
-                onEdit={() => openEdit(item)}
-                onTogglePublish={() => togglePublish(item.id)}
-                onRemove={() => removeItem(item.id)}
+                key={product.id.toString()}
+                item={{
+                  id: product.id.toString(),
+                  name: product.name,
+                  price: Number(product.price) / 100,
+                  quantity: 1,
+                  category: 'Food',
+                  status: 'published',
+                  image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&q=80',
+                }}
+                onEdit={() => openEdit(product)}
+                onTogglePublish={() => { }}
+                onRemove={() => handleRemoveProduct(product)}
               />
             ))}
           </View>
         )}
       </ScrollView>
 
-      {/* ── ADD / EDIT MODAL ── */}
+      {/* Add/Edit Product Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} activeOpacity={1} onPress={() => setModalVisible(false)} />
           <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 }}>
-            {/* Modal Header */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <View>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>{editingItem ? 'Edit Product' : 'Add New Product'}</Text>
-                <Text style={{ fontSize: 12, color: '#9CA3AF' }}>Fill in the details below</Text>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>
+                  {editingProduct ? 'Edit Product' : 'Add New Product'}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#9CA3AF' }}>Changes sync instantly to customers</Text>
               </View>
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }}>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }}
+              >
                 <Ionicons name="close" size={16} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
-            {/* Name */}
             <Text style={styles.label}>Item Name</Text>
-            <TextInput style={styles.input} placeholder="e.g. Wireless Headphones" value={formName} onChangeText={setFormName} />
+            <TextInput style={styles.input} placeholder="e.g. Paneer Butter Masala" value={formName} onChangeText={setFormName} />
 
-            {/* Price + Qty */}
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Price (₹)</Text>
-                <TextInput style={styles.input} placeholder="0.00" keyboardType="numeric" value={formPrice} onChangeText={setFormPrice} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Quantity</Text>
-                <TextInput style={styles.input} placeholder="0" keyboardType="numeric" value={formQty} onChangeText={setFormQty} />
-              </View>
-            </View>
+            <Text style={styles.label}>Price (₹)</Text>
+            <TextInput style={styles.input} placeholder="e.g. 150.00" keyboardType="decimal-pad" value={formPrice} onChangeText={setFormPrice} />
 
-            {/* Category */}
             <Text style={styles.label}>Category</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-              {CATEGORIES.map((cat) => (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+              {CATEGORIES.filter(c => c !== 'All').map((cat) => (
                 <TouchableOpacity
                   key={cat}
                   onPress={() => setFormCategory(cat)}
                   style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: formCategory === cat ? '#6366F1' : '#F3F4F6' }}
                 >
-                  <Text style={{ fontSize: 12, fontWeight: formCategory === cat ? '600' : '400', color: formCategory === cat ? '#fff' : '#6B7280' }}>{cat}</Text>
+                  <Text style={{ fontSize: 12, fontWeight: formCategory === cat ? '600' : '400', color: formCategory === cat ? '#fff' : '#6B7280' }}>
+                    {cat}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            {/* Publish toggle */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 12, padding: 14, marginBottom: 16 }}>
-              <View>
-                <Text style={{ fontSize: 13, fontWeight: '500', color: '#374151' }}>Published / Available</Text>
-                <Text style={{ fontSize: 11, color: '#9CA3AF' }}>Show this item on your store</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setFormPublished((p) => !p)}
-                style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: formPublished ? '#6366F1' : '#D1D5DB', justifyContent: 'center', padding: 2 }}
-              >
-                <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff', alignSelf: formPublished ? 'flex-end' : 'flex-start', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 }} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Save */}
             <TouchableOpacity
-              onPress={saveItem}
-              disabled={!formName.trim() || !formPrice || !formQty}
-              style={{ backgroundColor: '#6366F1', borderRadius: 14, paddingVertical: 14, alignItems: 'center', opacity: (!formName.trim() || !formPrice || !formQty) ? 0.4 : 1 }}
+              onPress={handleAddProduct}
+              disabled={!formName.trim() || !formPrice}
+              style={{ backgroundColor: '#6366F1', borderRadius: 14, paddingVertical: 14, alignItems: 'center', opacity: (!formName.trim() || !formPrice) ? 0.4 : 1 }}
             >
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
-                {editingItem ? 'Save Changes' : 'Add Product'}
+                {editingProduct ? 'Save Changes' : 'Add Product'}
               </Text>
             </TouchableOpacity>
           </View>
